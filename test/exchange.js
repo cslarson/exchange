@@ -22,17 +22,17 @@ contract('FIXED', function(accounts, another){
 });
 
 contract('Exchange', function(accounts){
-  it("accounts[1] BidOpen to buy 50000 FIXED for 1 ETH", () =>
+  it("accounts[1] BID to buy 50000 FIXED for 1 ETH", () =>
     Exchange.deployed()
-      .then( instance => instance.bid(FIXED.address, 50000, {from: accounts[1], value: new BigNumber('1000000000000000000')}) )
+      .then( instance => instance.open(1 /* Type.BID */, FIXED.address, 50000, null, {from: accounts[1], value: web3.toWei('1', 'ether')}) )
       .then( () => ethBalance(Exchange.address) )
-      .then( balance => assert.equal(balance.valueOf(), 1000000000000000000, "1 ETH wasn't in Exchange contract") )
+      .then( balance => assert.equal(balance.valueOf(), web3.toWei('1', 'ether'), "1 ETH wasn't in Exchange contract") )
   );
-  it("accounts[0] AskOpen to sell 50000 FIXED for 1 ETH", () =>
+  it("accounts[0] ASK to sell 50000 FIXED for 1 ETH", () =>
     FIXED.deployed()
       .then( instance => instance.approve(Exchange.address, 50000) )
       .then( () => Exchange.deployed()
-        .then( instance => instance.ask(FIXED.address, 50000, new BigNumber('1000000000000000000')) )
+        .then( instance => instance.open(0 /* Type.ASK */, FIXED.address, 50000, web3.toWei('1', 'ether')) )
         .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(Exchange.address)) )
         .then( balance => assert.equal(balance.valueOf(), 50000, "50000 wasn't in FIXED accounts[1]") )
       )
@@ -41,14 +41,14 @@ contract('Exchange', function(accounts){
     FIXED.deployed()
       .then( instance => instance.approve(Exchange.address, 50000) )
       .then( () => Exchange.deployed()
-        .then( instance => instance.sell(FIXED.address, 0) )
+        .then( instance => instance.close(0) )
         .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(accounts[1])) )
         .then( balance => assert.equal(balance.valueOf(), 50000, "50000 wasn't in accounts[1]") )
       )
   );
-  it("accounts[1] Buy FIXED ask id=0", () =>
+  it("accounts[1] Buy FIXED ask id=1", () =>
     Exchange.deployed()
-      .then( instance => instance.buy(FIXED.address, 0, {from: accounts[1], value: new BigNumber('1000000000000000000')}) )
+      .then( instance => instance.close(1, {from: accounts[1], value: web3.toWei('1', 'ether')}) )
       .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(accounts[1])) )
       .then( balance => assert.equal(balance.valueOf(), 100000, "100000 wasn't in accounts[1]") )
   );
