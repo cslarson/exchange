@@ -41,14 +41,14 @@ contract('Exchange', function(accounts){
     FIXED.deployed()
       .then( instance => instance.approve(Exchange.address, 50000) )
       .then( () => Exchange.deployed()
-        .then( instance => instance.close(0) )
+        .then( instance => instance.close([0]) )
         .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(accounts[1])) )
         .then( balance => assert.equal(balance.valueOf(), 50000, "50000 wasn't in accounts[1]") )
       )
   );
   it("accounts[1] Buy FIXED ask id=1", () =>
     Exchange.deployed()
-      .then( instance => instance.close(1, {from: accounts[1], value: web3.toWei('1', 'ether')}) )
+      .then( instance => instance.close([1], {from: accounts[1], value: web3.toWei('1', 'ether')}) )
       .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(accounts[1])) )
       .then( balance => assert.equal(balance.valueOf(), 100000, "100000 wasn't in accounts[1]") )
   );

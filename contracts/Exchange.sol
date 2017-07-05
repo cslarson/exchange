@@ -4,7 +4,7 @@ import "./ERC20.sol";
 
 contract Exchange {
 
-  enum Status { OPEN, CANCEL, CLOSE }
+  enum Status { OPEN, CANCELED, CLOSED }
   enum Side { ASK, BID }
 
   struct Offer {
@@ -45,43 +45,74 @@ contract Exchange {
     Open(id);
   }
 
-  function cancel(uint256 _id) {
-    Offer o = offers[_id];
-    // only offeror can cancel
-    require( msg.sender == o.offeror );
-    // can only cancel an open offer
-    require( o.status == Status.OPEN );
-    if (o.side == Side.ASK) {
-      // send token back to offeror
-      assert( ERC20(o.token).transfer(msg.sender, o.amount) );
-    } else {  // is Side.BID
-      // send eth back to offeror
-      o.offeror.transfer( o.value );
+  function cancel(uint256[] _ids) {
+    for(uint i = 0; i < _ids.length; i++) {
+      uint id = _ids[i];
+      Offer o = offers[id];
+      // only offeror can cancel
+      require( msg.sender == o.offeror );
+      // can only cancel an open offer
+      require( o.status == Status.OPEN );
+      if (o.side == Side.ASK) {
+        // send token back to offeror
+        assert( ERC20(o.token).transfer(msg.sender, o.amount) );
+      } else {  // is Side.BID
+        // send eth back to offeror
+        o.offeror.transfer( o.value );
+      }
+      // set canceled
+      o.status = Status.CANCELED;
+      Cancel(id);
     }
-    // set canceled
-    o.status = Status.CANCEL;
-    Cancel(_id);
   }
 
-  function close(uint256 _id) payable {
-    Offer o = offers[_id];
-    ERC20 token = ERC20(o.token);
-    // check order is open
-    require( o.status == Status.OPEN );
-    if (o.side == Side.ASK) {
-      // is buyer paying the right amount?
-      require( msg.value == o.value );
-      // send tokens to buyer
-      assert( token.transfer(msg.sender, o.amount) );
-    } else {  // is Side.BID
-      // verify seller has permitted contract to transfer tokens
-      require( token.allowance(msg.sender, this) >= o.amount );
-      // transfer seller tokens to buyer (offeror)
-      assert( token.transferFrom(msg.sender, o.offeror, o.amount) );
+  function close(uint256[] _ids) payable {
+    Side side;
+    ERC20 token;
+    uint256 remaining;
+
+    for(uint i = 0; i < _ids.length; i++) {
+      uint id = _ids[i];
+      Offer o = offers[id];
+
+      // all must be of same side and token
+      if ( i == 0 ) {
+        side = o.side;
+        token = ERC20(o.token);
+        remaining = side == Side.ASK ? msg.value : token.allowance(msg.sender, this);
+      } else {
+        require( o.side == side );
+        require( o.token == address(token) );
+      }
+
+      // check order is open
+      if ( o.status != Status.OPEN ) continue;
+
+
+      if (o.side == Side.ASK) {
+        // skip offer if we don't have enough
+        // TODO fill partial orders
+        if ( remaining < o.value ) continue;
+        // reduce balance to reflect this order
+        remaining -= o.value;
+        o.status = Status.CLOSED;
+        // send tokens to buyer
+        assert( token.transfer(msg.sender, o.amount) );
+        o.offeror.transfer( o.value );
+        Close(id);
+      } else {  // is Side.BID
+        // skip offer if we don't have enough
+        // TODO fill partial orders
+        if ( remaining < o.amount ) continue;
+        // reduce balance to reflect this order
+        remaining -= o.amount;
+        o.status = Status.CLOSED;
+        // transfer seller tokens to buyer (offeror)
+        assert( token.transferFrom(msg.sender, o.offeror, o.amount) );
+        o.offeror.transfer( o.value );
+        Close(id);
+      }
     }
-    // send eth to seller
-    o.offeror.transfer( o.side == Side.ASK ? msg.value : o.value );
-    Close(_id);
   }
 
 }
