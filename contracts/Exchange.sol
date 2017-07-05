@@ -112,6 +112,8 @@ contract Exchange {
         Close(id);
       }
     }
+
+    if ( remaining > 0 && side == Side.ASK ) msg.sender.transfer( remaining );
   }
 
 }
