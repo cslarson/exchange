@@ -88,7 +88,6 @@ contract Exchange {
       // check order is open
       if ( o.status != Status.OPEN ) continue;
 
-
       if (o.side == Side.ASK) {
         // skip offer if we don't have enough
         // TODO fill partial orders
@@ -109,7 +108,7 @@ contract Exchange {
         o.status = Status.CLOSED;
         // transfer seller tokens to buyer (offeror)
         assert( token.transferFrom(msg.sender, o.offeror, o.amount) );
-        o.offeror.transfer( o.value );
+        msg.sender.transfer( o.value );
         Close(id);
       }
     }
