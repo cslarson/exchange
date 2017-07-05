@@ -34,7 +34,7 @@ contract('Exchange', function(accounts){
       .then( () => Exchange.deployed()
         .then( instance => instance.open(0 /* Type.ASK */, FIXED.address, 50000, web3.toWei('1', 'ether')) )
         .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(Exchange.address)) )
-        .then( balance => assert.equal(balance.valueOf(), 50000, "50000 wasn't in FIXED accounts[1]") )
+        .then( balance => assert.equal(balance.valueOf(), 50000, "50000 wasn't in FIXED Exchange.address") )
       )
   );
   it("accounts[0] Sell FIXED bid id=0", () =>
@@ -46,10 +46,19 @@ contract('Exchange', function(accounts){
         .then( balance => assert.equal(balance.valueOf(), 50000, "50000 wasn't in accounts[1]") )
       )
   );
-  it("accounts[1] Buy FIXED ask id=1", () =>
+  it("accounts[1] ASK to sell 50000 FIXED for 2 ETH", () =>
+    FIXED.deployed()
+      .then( instance => instance.approve(Exchange.address, 50000, {from: accounts[1]}) )
+      .then( () => Exchange.deployed()
+        .then( instance => instance.open(0 /* Type.ASK */, FIXED.address, 50000, web3.toWei('2', 'ether'), {from: accounts[1]}) )
+        .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(Exchange.address)) )
+        .then( balance => assert.equal(balance.valueOf(), 100000, "100000 wasn't in FIXED Exchange.address") )
+      )
+  );
+  it("accounts[2] Buy FIXED ask id=1,2", () =>
     Exchange.deployed()
-      .then( instance => instance.close([1], {from: accounts[1], value: web3.toWei('1', 'ether')}) )
-      .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(accounts[1])) )
-      .then( balance => assert.equal(balance.valueOf(), 100000, "100000 wasn't in accounts[1]") )
+      .then( instance => instance.close([1,2], {from: accounts[2], value: web3.toWei('3', 'ether')}) )
+      .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(accounts[2])) )
+      .then( balance => assert.equal(balance.valueOf(), 100000, "100000 wasn't in accounts[2]") )
   );
 });
