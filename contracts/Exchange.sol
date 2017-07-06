@@ -66,7 +66,7 @@ contract Exchange {
     }
   }
 
-  function close(uint256[] _ids) payable {
+  function fill(uint256[] _ids) payable {
     Side side;
     ERC20 token;
     uint256 remaining;
@@ -79,6 +79,8 @@ contract Exchange {
       if ( i == 0 ) {
         side = o.side;
         token = ERC20(o.token);
+        // Side.BID fills should not send ether
+        require( side == Side.ASK || msg.value == 0 );
         remaining = side == Side.ASK ? msg.value : token.allowance(msg.sender, this);
       } else {
         require( o.side == side );
@@ -91,29 +93,62 @@ contract Exchange {
       if (o.side == Side.ASK) {
         // skip offer if we don't have enough
         // TODO fill partial orders
-        if ( remaining < o.value ) continue;
-        // reduce balance to reflect this order
-        remaining -= o.value;
-        o.status = Status.CLOSED;
-        // send tokens to buyer
-        assert( token.transfer(msg.sender, o.amount) );
-        o.offeror.transfer( o.value );
-        Close(id);
+        /*if ( remaining < o.value ) continue;*/
+        if ( remaining < o.value ) {
+          partialAsk(o, remaining);
+          break;
+        } else {
+          // reduce balance to reflect this order
+          remaining -= o.value;
+          o.status = Status.CLOSED;
+          // send tokens to buyer
+          assert( token.transfer(msg.sender, o.amount) );
+          // and eth to seller
+          o.offeror.transfer( o.value );
+          Close(id);
+        }
       } else {  // is Side.BID
         // skip offer if we don't have enough
         // TODO fill partial orders
-        if ( remaining < o.amount ) continue;
-        // reduce balance to reflect this order
-        remaining -= o.amount;
-        o.status = Status.CLOSED;
-        // transfer seller tokens to buyer (offeror)
-        assert( token.transferFrom(msg.sender, o.offeror, o.amount) );
-        msg.sender.transfer( o.value );
-        Close(id);
+        /*if ( remaining < o.amount ) continue;*/
+        if( remaining < o.amount ) {
+          partialBid(o, remaining);
+          break;
+        } else {
+          // reduce balance to reflect this order
+          remaining -= o.amount;
+          o.status = Status.CLOSED;
+          // transfer seller tokens to buyer (offeror)
+          assert( token.transferFrom(msg.sender, o.offeror, o.amount) );
+          // and eth to seller
+          msg.sender.transfer( o.value );
+          Close(id);
+        }
       }
     }
 
+    // if any eth remaining, return to sender
     if ( remaining > 0 && side == Side.ASK ) msg.sender.transfer( remaining );
+  }
+
+  function partialAsk(Offer o, uint256 remaining) internal {
+    uint amount = remaining * o.amount / o.value;
+    o.value -= remaining;
+    o.amount -= amount;
+    // send tokens to buyer
+    assert( ERC20(o.token).transfer(msg.sender, amount) );
+    // and eth to seller
+    o.offeror.transfer( remaining );
+  }
+
+  function partialBid(Offer o, uint256 remaining) internal {
+    uint value = remaining * o.value / o.amount;
+    o.value -= value;
+    o.amount -= remaining;
+    // transfer seller tokens to buyer (offeror)
+    assert( ERC20(o.token).transferFrom(msg.sender, o.offeror, remaining) );
+    // and eth to seller
+    msg.sender.transfer( value );
   }
 
 }
