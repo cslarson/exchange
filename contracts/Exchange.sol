@@ -21,6 +21,7 @@ contract Exchange {
   event Open(uint256 id);
   event Cancel(uint256 id);
   event Close(uint256 id);
+  event Debug(uint256 num, string message);
 
   function open(Side _side, address _token, uint256 _amount, uint256 _value) payable {
 
@@ -93,9 +94,9 @@ contract Exchange {
       if (o.side == Side.ASK) {
         // skip offer if we don't have enough
         // TODO fill partial orders
-        /*if ( remaining < o.value ) continue;*/
         if ( remaining < o.value ) {
-          partialAsk(o, remaining);
+          assert( partialAsk(o, remaining) );
+          remaining = 0;
           break;
         } else {
           // reduce balance to reflect this order
@@ -110,9 +111,9 @@ contract Exchange {
       } else {  // is Side.BID
         // skip offer if we don't have enough
         // TODO fill partial orders
-        /*if ( remaining < o.amount ) continue;*/
         if( remaining < o.amount ) {
-          partialBid(o, remaining);
+          assert( partialBid(o, remaining) );
+          remaining = 0;
           break;
         } else {
           // reduce balance to reflect this order
@@ -128,10 +129,10 @@ contract Exchange {
     }
 
     // if any eth remaining, return to sender
-    if ( remaining > 0 && side == Side.ASK ) msg.sender.transfer( remaining );
+    if ( side == Side.ASK && remaining > 0  ) msg.sender.transfer( remaining );
   }
 
-  function partialAsk(Offer o, uint256 remaining) internal {
+  function partialAsk(Offer o, uint256 remaining) internal returns (bool) {
     uint amount = remaining * o.amount / o.value;
     o.value -= remaining;
     o.amount -= amount;
@@ -139,9 +140,10 @@ contract Exchange {
     assert( ERC20(o.token).transfer(msg.sender, amount) );
     // and eth to seller
     o.offeror.transfer( remaining );
+    return true;
   }
 
-  function partialBid(Offer o, uint256 remaining) internal {
+  function partialBid(Offer o, uint256 remaining) internal returns (bool) {
     uint value = remaining * o.value / o.amount;
     o.value -= value;
     o.amount -= remaining;
@@ -149,6 +151,7 @@ contract Exchange {
     assert( ERC20(o.token).transferFrom(msg.sender, o.offeror, remaining) );
     // and eth to seller
     msg.sender.transfer( value );
+    return true;
   }
 
 }
