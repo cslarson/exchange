@@ -1,6 +1,7 @@
 pragma solidity ^0.4.11;
 
 import "./ERC20.sol";
+/*import "./SafeMath.sol";*/
 
 contract Exchange {
 
@@ -21,7 +22,7 @@ contract Exchange {
   event Open(uint256 id);
   event Cancel(uint256 id);
   event Close(uint256 id);
-  event Debug(uint256 num, string message);
+  event Debug(string message, uint256[] nums);
 
   function open(Side _side, address _token, uint256 _amount, uint256 _value) payable {
 
