@@ -55,10 +55,27 @@ contract('Exchange', function(accounts){
         .then( balance => assert.equal(balance.valueOf(), 100000, "100000 wasn't in FIXED Exchange.address") )
       )
   );
-  it("accounts[2] Buy FIXED ask id=1,2", () =>
+  it("multi ASK fill: accounts[2] Buy FIXED ask id=1,2", () =>
     Exchange.deployed()
       .then( instance => instance.fill([1,2], {from: accounts[2], value: web3.toWei('3', 'ether')}) )
       .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(accounts[2])) )
       .then( balance => assert.equal(balance.valueOf(), 100000, "100000 wasn't in accounts[2]") )
+  );
+  it("multi BID fill with partial: accounts[2] Sell FIXED bid id=3,4,5,6", () =>
+    FIXED.deployed()
+      .then( instance => instance.approve(Exchange.address, 95000, {from: accounts[2]}) )
+      .then( () => Exchange.deployed()
+        .then( instance => instance.open(1 /* Type.BID */, FIXED.address, 30000, null, {value: web3.toWei('1', 'ether')}).then(()=>instance) )
+        .then( instance => instance.open(1 /* Type.BID */, FIXED.address, 30000, null, {value: web3.toWei('1.25', 'ether')}).then(()=>instance) )
+        .then( instance => instance.open(1 /* Type.BID */, FIXED.address, 30000, null, {value: web3.toWei('1.5', 'ether')}).then(()=>instance) )
+        .then( instance => instance.open(1 /* Type.BID */, FIXED.address, 30000, null, {value: web3.toWei('1.75', 'ether')}).then(()=>instance) )
+        .then( instance => instance.fill([3,4,5,6], {from: accounts[2]}) )
+        .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(accounts[0])) )
+        .then( balance => assert.equal(balance.valueOf(), 995000, "995000 wasn't in accounts[0]") )
+        .then( () => FIXED.deployed().then( instance => instance.balanceOf.call(accounts[2])) )
+        .then( balance => assert.equal(balance.valueOf(), 5000, "5000 wasn't in accounts[0]") )
+        .then( () => ethBalance(Exchange.address) )
+        .then( balance => assert.equal(balance.valueOf(), 1458333333333333334, "1458333333333333334 Wei wasn't in Exchange contract") )
+      )
   );
 });
